@@ -1,5 +1,6 @@
 from google import genai
 from google.genai import types
+import mimetypes
 
 
 def run_style_model(api_key, model_name, image_path, prompt):
@@ -13,6 +14,8 @@ def run_style_model(api_key, model_name, image_path, prompt):
     # 1. 입력 이미지 읽기
     with open(image_path, "rb") as f:
         img_bytes = f.read()
+    mime_type, _ = mimetypes.guess_type(image_path)
+    mime_type = mime_type or "image/jpeg"
 
     # 2. 모델 호출
     response = client.models.generate_content(
@@ -20,7 +23,7 @@ def run_style_model(api_key, model_name, image_path, prompt):
         contents=[
             types.Part.from_bytes(
                 data=img_bytes,
-                mime_type="image/jpeg",  # png라도 대부분 문제 없이 처리됨
+                mime_type=mime_type
             ),
             prompt,
         ],

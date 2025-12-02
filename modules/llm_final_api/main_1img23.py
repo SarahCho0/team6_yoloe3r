@@ -3,7 +3,7 @@ from google import genai
 from google.genai import types
 from PIL import Image # 이미지 저장 및 처리 
 import io # 바이트 스트림 처리 
-from .config import API_KEY, STYLE_MODEL
+from config import API_KEY, STYLE_MODEL
 
 def make_one_image_to_three(api_key: str, model_name: str, input_image_path: str):
     """
@@ -32,49 +32,45 @@ def make_one_image_to_three(api_key: str, model_name: str, input_image_path: str
 
     # (1) 절대 규칙. (공통)
     base_rules = """
-    당신은 실사 사진을 감쪽같이 편집하는 최고 수준의 전문 디지털 아티스트이자 포토그래머입니다.
-    입력된 “단일 방 사진”을 바탕으로, 동일한 방을 유지한 상태에서 
-    수평(Yaw) 각도만 다르게 적용한 실사 이미지를 생성해야 합니다.
+        당신은 실사 사진을 감쪽같이 편집하는 최고 수준의 전문 디지털 아티스트이자 포토그래머입니다.
+        입력된 “단일 방 사진”을 바탕으로, 동일한 방을 유지한 상태에서
+        수평(Yaw) 각도만 다르게 적용한 실사 이미지를 생성해야 합니다.
 
-    ────────────────────────────────────────
-    절대 규칙 (어떠한 경우에도 위반 금지):
-    • 출력 결과는 반드시 "단일 이미지 1장".
-    • 원본 방의 구조, 물체 배치, 가구 개수, 위치, 조명 방향, 재질, 텍스처는 모두 유지.
-    • 카메라의 물리적 위치 고정.
-    • 수평(Yaw) 회전만 적용.
-    • 상하 각도(Pitch) 변화 없음 → tilt = 0
-    • 줌인/줌아웃 금지 → zoom = 0 (원본 화각 그대로 유지)
-    • 출력되는 이미지는 "실사 사진(realistic photo)"이어야 하며, 3D 렌더링·그림 느낌 금지.
-    • 출력 이미지의 **가로세로 비율(aspect ratio)은 반드시 입력 이미지와 동일해야 한다.**
-    • Temperature = 0.1 수준의 일관성 유지.
+        ────────────────────────────────────────
+        절대 규칙 (어떠한 경우에도 위반 금지):
+        • 출력 결과는 반드시 "단일 이미지 1장".
+        • 가구의 종류, 개수, 색상, 위치, 조명, 벽 색, 바닥, 창문, 방의 구조, 재질과 텍스쳐 등은 절대 바꾸지 마세요.
+        • 새로운 가구, 장식, 문, 창문을 추가하지 마세요.
+        • 카메라의 물리적 위치 고정.
+        • 수평(Yaw) 회전만 적용.
+        • 상하 각도(Pitch) 변화 없음 → tilt = 0
+        • 줌인/줌아웃 금지 → zoom = 0 (원본 화각 그대로 유지)
+        • 출력되는 이미지는 "실사 사진(realistic photo)"이어야 하며, 3D 렌더링·그림 느낌 금지.
+        • 이 이미지는 반드시 원본과 같은 방이어야 하며, 다른 방처럼 보이게 만들면 안 됩니다.
+        • 시점이 달라져서 가구의 일부가 가려지거나, 보이는 면/각도가 달라지는 정도는 자연스러운 변화이므로 허용합니다.
+        • 하지만 카메라 회전을 핑계로 전체 구도나 공간의 구조, 가구 구성이 크게 달라지면 안 됩니다. 
     """
 
     # (2) 방향별 세부 지시. (Left / Right)
     prompts_by_direction = {
         "left": """
-        [작업: 왼쪽(Yaw -30°)]
-        • 입력된 사진의 방을 동일하게 유지.
-        • 카메라가 제자리에서 수평으로 왼쪽으로 약 -30° 회전한 시야.
-        • 사용자가 몸을 왼쪽으로 30° 돌린 시점과 동일.
-        • tilt = 0, zoom = 0, 단일 프레임.
+        [작업: 왼쪽(Yaw -40°)]
+        • 카메라가 제자리에서 수평으로 왼쪽으로 약 -40° 회전한 시야.
+        • 사용자가 몸을 왼쪽으로 40° 돌린 시점과 동일.
 
         prompt:
-        camera rotated 30 degrees to the left, same room, same furniture layout,
-        single frame, single viewpoint, realistic indoor photograph,
-        tilt 0, zoom 0, same aspect ratio as the original image
+        camera rotated 40 degrees to the left, same room, same furniture layout,
+        single frame, single viewpoint, realistic indoor photograph
         """,
 
         "right": """
-        [작업: 오른쪽(Yaw +30°)]
-        • 입력된 사진의 방을 동일하게 유지.
-        • 카메라가 제자리에서 수평으로 오른쪽으로 약 +30° 회전한 시점.
-        • 사용자가 몸만 오른쪽으로 30° 돌려 같은 방을 바라본 시야.
-        • tilt = 0, zoom = 0, 단일 프레임.
+        [작업: 오른쪽(Yaw +40°)]
+        • 카메라가 제자리에서 수평으로 오른쪽으로 약 +40° 회전한 시점.
+        • 사용자가 몸만 오른쪽으로 40° 돌려 같은 방을 바라본 시야.
 
         prompt:
-        camera rotated 30 degrees to the right, same room, same furniture layout,
-        single frame, single viewpoint, realistic indoor photograph,
-        tilt 0, zoom 0, same aspect ratio as the original image
+        camera rotated 40 degrees to the right, same room, same furniture layout,
+        single frame, single viewpoint, realistic indoor photograph
         """
     }
 
@@ -84,7 +80,15 @@ def make_one_image_to_three(api_key: str, model_name: str, input_image_path: str
     negative prompt:
     collage, split screen, multi-view, panorama, fisheye, lens distortion,
     illustration, drawing, CGI, painting, text, watermark, subtitles,
-    distorted furniture, changing room structure
+    distorted furniture, changing room structure,
+    mirrored, mirror image, left-right flip, horizontal flip, vertical flip,
+    perfectly symmetric room, perfectly mirrored room,
+    identical to original image, exact copy of original, no change from original,
+    좌우대칭, 좌우 반전, 원본과 완전히 동일한 사진
+    zoomed in, zoom-in, zoom in,
+    zoomed out, zoom-out, zoom out,
+    extreme close-up, close-up, tight framing,
+    crop, cropped, heavily cropped, partial frame
     """
 
     # 각도 저장 파일명 : img4new3r_left.png, img4new3r_right.png.
@@ -123,6 +127,7 @@ def make_one_image_to_three(api_key: str, model_name: str, input_image_path: str
                 ],
                 config=types.GenerateContentConfig(
                     temperature=0.1,  # 온도 설정 (0.1): 결과물의 일관성을 높이고 창의성을 낮추기.
+                    top_p=0.3         # Top-P 누클리어스 샘플링 설정 (0.3) : 확률이 높은 답을 내놓을 가능성을 높이기.
                     # 모델이 이미지를 반환하도록 설정. (모델 스펙에 따라 파라미터가 다를 수 있음)
                     # 만약 순수 Imagen 모델이라면 generate_images 메서드를 써야 할 수도 있음.
                     # 여기서는 Gemini 멀티모달(입력:이미지+텍스트 -> 출력:이미지)을 가정.
@@ -139,9 +144,8 @@ def make_one_image_to_three(api_key: str, model_name: str, input_image_path: str
                         
                         # 바이트 데이터를 이미지 파일로 저장.
                         img = Image.open(io.BytesIO(image_data))
-                        filepath = os.path.join('apioutput',output_filename)
-                        img.save(filepath)
-                        print(f"   저장 완료: {filepath}")
+                        img.save(output_filename)
+                        print(f"   저장 완료: {output_filename}")
                         break # 이미지를 하나 찾으면 저장하고 다음 태스크로.
                 else:
                     # 루프가 break 없이 끝났다면 이미지가 없다는 뜻.
@@ -154,3 +158,20 @@ def make_one_image_to_three(api_key: str, model_name: str, input_image_path: str
             print(f"   '{direction}' 이미지 생성 중 에러 발생: {e}")
 
     print("\n 모든 추가 뷰 이미지 생성 작업이 끝났습니다.")
+
+# 테스트용 실행 코드 (이 파일을 직접 실행할 때만 동작.)
+if __name__ == "__main__":
+    # NOTE: 이 블록이 동작하려면, 이 파일이 config.py와 같은 레벨에 있다고 가정하며, 
+    #       config.py에서 API_KEY와 STYLE_MODEL을 import해야 합니다. 
+    #       프로젝트 최종 구조에 따라 main 함수에서 호출하는 것이 일반적이므로,
+    #       이 테스트 코드는 제거하거나 주석 처리하는 것이 좋습니다.
+    from config import API_KEY, STYLE_MODEL # 테스트를 위해 임시 import
+
+    TEST_INPUT_PATH = "styled_output.jpg" # 1번 과정 결과물이 있다고 가정.
+    
+    # 파일이 존재할 때만 테스트.
+    if os.path.exists(TEST_INPUT_PATH):
+        make_one_image_to_three(API_KEY, STYLE_MODEL, TEST_INPUT_PATH)
+    else:
+        print(f"테스트를 위한 입력 파일({TEST_INPUT_PATH})이 없습니다.")
+        print("먼저 1번 과정(스타일 변환)을 실행하여 이미지를 생성해주세요.")

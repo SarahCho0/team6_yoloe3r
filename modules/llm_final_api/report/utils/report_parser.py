@@ -51,7 +51,7 @@ def parse_report_output(result_text: str) -> Dict[str, Union[str, Dict, List]]:
 
     
     # ------ ## 2. 분위기 판단 근거 -------
-        basis_section_match = re.search(
+    basis_section_match = re.search(
         r"##\s*2\. 분위기 판단 근거(.*?)(?=##\s*3-1\. 현재 분위기에 맞춰 추가하면 좋을 가구 추천)",
         llm_output,
         re.DOTALL,

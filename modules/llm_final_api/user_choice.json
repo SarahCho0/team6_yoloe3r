@@ -1,5 +1,5 @@
 {
-    "use_add": false,
-    "use_remove": false,
-    "use_change": true
+  "use_add": true,
+  "use_remove": true,
+  "use_change": true
 }

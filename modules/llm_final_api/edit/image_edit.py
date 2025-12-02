@@ -1,8 +1,7 @@
 import os
-from typing import Optional
 
-from modules.llm_final_api.style.style_client import run_style_model  # Gemini 호출 함수.
-from modules.llm_final_api.style.style_prompt import generate_style_prompt  # 스타일 프롬프트 재사용.
+from style.style_client import run_style_model  # Gemini 호출 함수.
+from style.style_prompt import generate_style_prompt  # 스타일 프롬프트 재사용.
 
 
 def run_image_edit(

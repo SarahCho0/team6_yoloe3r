@@ -1,10 +1,10 @@
-API_KEY = "APIKEY"  # 여기에 실제 API 키 입력
+API_KEY = "AIzaSyAwYDv41B75t0f10qp4GSadUEEPt7plMzg"  # 여기에 실제 API 키 입력
 
 # 3장의 최초 입력 이미지 경로
 INITIAL_IMAGE_PATHS = [
-    "modules/llm_final_api/input_image/test1.png", 
-    "modules/llm_final_api/input_image/test2.png",
-    "modules/llm_final_api/input_image/test3.png"
+    "C:/Users/minso/Desktop/report_3imgs/room_a.jpg", 
+    "C:/Users/minso/Desktop/report_3imgs/room_b.jpg",
+    "C:/Users/minso/Desktop/report_3imgs/room_e.jpg"
 ]
 
 # 3장 중 AI가 선택한 '최적 이미지'가 임시로 저장될 경로

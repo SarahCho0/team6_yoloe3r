@@ -2,17 +2,17 @@ import os
 import json
 import shutil
 
-from .config import (
+from config import (
     API_KEY,
     STYLE_MODEL,
     SELECTED_IMAGE_PATH,
 )
 
-from .edit.image_edit import run_image_edit
-from .main_1img23 import make_one_image_to_three  
+from edit.image_edit import run_image_edit
+from main_1img23 import make_one_image_to_three  
 
 PARSED_REPORT_PATH = "parsed_report.json" # main_report.py에서 생성
-USER_CHOICE_PATH = "modules/llm_final_api/user_choice.json" # 사용자 선택값 저장
+USER_CHOICE_PATH = "user_choice.json" # 사용자 선택값 저장
 ORG_IMAGE_PATH = "img4new3r_org.png"  # 최종 결과물 이름
 
 def load_json(path: str):
@@ -22,7 +22,7 @@ def load_json(path: str):
         return json.load(f)
 
 
-def main_modify_looks():
+def main():
     # ------ 1. 입력 파일/경로 로드 ------
     try:
         parsed_report = load_json(PARSED_REPORT_PATH)
@@ -153,14 +153,13 @@ def main_modify_looks():
 
     # 최종 결과를 항상 img4new3r_org.png 로 통일
     if os.path.exists(final_image_path) and final_image_path != ORG_IMAGE_PATH:
-        save_path = os.path.join('apioutput',ORG_IMAGE_PATH)
-        shutil.copyfile(final_image_path, save_path)
-        
+        shutil.copyfile(final_image_path, ORG_IMAGE_PATH)
+        final_image_path = ORG_IMAGE_PATH
     else:
         # 이미 ORG_IMAGE_PATH 를 쓰고 있었던 경우 
         final_image_path = ORG_IMAGE_PATH
 
-    print(f"3단계(추가/제거/변경)까지 완료된 최종 이미지: {save_path}")
+    print(f"3단계(추가/제거/변경)까지 완료된 최종 이미지: {final_image_path}")
 
     # ------ 6. 좌&우 각도 이미지 생성 ------
     print("\n4단계: 좌&우 각도 이미지 생성")
@@ -177,4 +176,4 @@ def main_modify_looks():
         print(f"4단계(좌/우 각도 생성) 중 에러 발생: {e}")
 
 if __name__ == "__main__":
-    main_modify_looks()
+    main()

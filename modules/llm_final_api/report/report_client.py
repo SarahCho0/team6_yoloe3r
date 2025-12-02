@@ -1,5 +1,6 @@
 from google import genai
 from google.genai import types
+import mimetypes
 
 # 보고서 모델을 실행하는 함수
 def run_report_model(api_key, model_name, image_path, prompt):
@@ -7,6 +8,8 @@ def run_report_model(api_key, model_name, image_path, prompt):
 
     with open(image_path, "rb") as f:
         img_bytes = f.read()
+    mime_type, _ = mimetypes.guess_type(image_path)
+    mime_type = mime_type or "image/jpeg"
 
     # Gemini 모델에 콘텐츠를 생성하도록 요청
     response = client.models.generate_content(
@@ -14,7 +17,7 @@ def run_report_model(api_key, model_name, image_path, prompt):
         contents=[
             types.Part.from_bytes(
                 data=img_bytes,
-                mime_type="image/jpeg"
+                mime_type=mime_type
             ),
             prompt
         ]
