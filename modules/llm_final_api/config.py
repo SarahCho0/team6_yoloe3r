@@ -1,4 +1,4 @@
-API_KEY = "AIzaSyAwYDv41B75t0f10qp4GSadUEEPt7plMzg"  # 여기에 실제 API 키 입력
+API_KEY = "YOUR API KEY"  # 여기에 실제 API 키 입력
 
 # 3장의 최초 입력 이미지 경로
 INITIAL_IMAGE_PATHS = [
@@ -16,3 +16,4 @@ SELECTED_IMAGE_PATH = "selected_input_image.jpg"
 
 REPORT_MODEL = "gemini-2.5-flash" # 리포트 생성 모델
 STYLE_MODEL = "gemini-2.5-flash-image"  # 이미지 출력 모델
+
