@@ -5,6 +5,9 @@
 import os
 from dotenv import load_dotenv
 
+# .env 파일을 만드세요
+# 만드는 방법: 문서 이름을 .env 로 설정하시고,
+# 거기에 API_KEY="YOUR_GEMINI_API_KEY_HERE" 이것만 실제 api 키로 바꿔 써놓으시면 됩니다.
 # --- .env 파일 로드 ---
 # 프로젝트 루트 폴더에 있는 .env 파일을 읽어 환경 변수를 로드합니다.
 load_dotenv() 
@@ -34,5 +37,6 @@ SELECTED_IMAGE_PATH = "selected_input_image.jpg"
 
 REPORT_MODEL = "gemini-2.5-flash" # 리포트 생성 모델
 STYLE_MODEL = "gemini-2.5-flash-image"  # 이미지 출력 모델
+
 
 
