@@ -10,6 +10,8 @@ import trimesh
 import copy
 from PIL import Image
 from scipy.spatial.transform import Rotation
+import requests
+from io import BytesIO
 
 from modules.pe3r.images import Images
 
@@ -29,6 +31,9 @@ from modules.mobilesamv2.utils.transforms import ResizeLongestSide
 from modules.llm_final_api.main_report import main_report
 from modules.llm_final_api.main_new_looks import main_new_looks
 from modules.llm_final_api.main_modify_looks import main_modify_looks
+
+from modules.IR.listup import listup
+from modules.IR.track_crop import crop
 
 
 def _convert_scene_output_to_glb(outdir, imgs, pts3d, mask, focals, cams2world, cam_size=0.05,
@@ -731,6 +736,40 @@ def main_demo(tmpdirname, pe3r, device, server_name, server_port, silent=False):
         
         # 순서: Scene, 3D모델경로, 입력파일, 분석리포트텍스트
         return orig_scene, restored_model_path, orig_inputs, restored_report
+    #-----------------------------------------
+    # IR
+    #-----------------------------------------
+    def run_and_display(input_files):
+        """
+        listup()을 실행하고 결과를 Gradio 갤러리 형식으로 변환합니다.
+        """
+
+        image_paths = []
+        if input_files:
+            for f in input_files:
+                path = f.name if hasattr(f, 'name') else f
+                image_paths.append(path)
+        else:
+            print('no input')
+
+        url_dict = listup(input_files)
+        gallery_data = []
+        
+        # 딕셔너리에 있는 URL을 순회하며 이미지 다운로드
+        for folder_id, url in url_dict.items():
+            try:
+                response = requests.get(url[0])
+                image = Image.open(BytesIO(response.content))
+                
+                # (이미지 객체, 캡션) 튜플 형태로 리스트에 추가
+                caption = f"Model Name : {url[1]}"
+                gallery_data.append((image, caption))
+                
+            except Exception as e:
+                print(f"Error loading image from {url[0]}: {e}")
+                continue
+                
+        return gallery_data
 
     # -------------------------------------------------------------------------
 
@@ -766,6 +805,7 @@ def main_demo(tmpdirname, pe3r, device, server_name, server_port, silent=False):
                     clean_depth = gr.Checkbox(value=True, visible=False)
 
                 run_btn = gr.Button("Reconstruct", variant="primary", elem_classes=["primary-btn"])
+                IR_btn = gr.Button("가구 모델명 찾기", variant="primary", elem_classes=["primary-btn"])
                 revert_btn = gr.Button("↩️ 원본 되돌리기", variant="secondary")
                 
                 # [수정됨] 초기에는 보이지 않도록 visible=False 설정
@@ -789,6 +829,20 @@ def main_demo(tmpdirname, pe3r, device, server_name, server_port, silent=False):
                     elem_classes=["report-box"]
                 )
                 outgallery = gr.Gallery(visible=False)
+            with gr.Column():
+                gr.Markdown("## 3D Object Detection Results")
+                
+                # columns=1로 설정하면 이미지가 세로로 한 줄씩 나옵니다.
+                # object_fit="contain"은 이미지가 잘리지 않고 전체가 보이게 합니다.
+                result_gallery = gr.Gallery(
+                    label="Detected Objects", 
+                    columns=1,            # [핵심] 세로 정렬을 위해 1열로 설정
+                    height="auto",        # 높이 자동 조절
+                    object_fit="contain"  # 이미지 비율 유지
+                )
+                
+                # 버튼 클릭 시 함수 실행 -> 갤러리에 출력
+        IR_btn.click(fn=run_and_display, inputs=[inputfiles], outputs=result_gallery)
 
         # ---------------------------------------------------------------------
         # [이벤트 흐름 1: 기본 Reconstruct 버튼 (원본 생성)]
