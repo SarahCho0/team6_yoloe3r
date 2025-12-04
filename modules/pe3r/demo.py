@@ -890,7 +890,7 @@ def main_demo(tmpdirname, pe3r, device, server_name, server_port, silent=False):
         mask_data_state = gr.State([])
         object_id_list_state = gr.State([])
 
-        gr.Markdown("## 🧊 PE3R Demo")
+        gr.Markdown("## 🧊 IF Demo")
 
         with gr.Row():
             # --- 좌측 패널 ---
@@ -913,15 +913,15 @@ def main_demo(tmpdirname, pe3r, device, server_name, server_port, silent=False):
                     mask_sky = gr.Checkbox(value=False, visible=False)
                     clean_depth = gr.Checkbox(value=True, visible=False)
 
-                run_btn = gr.Button("Reconstruct", variant="primary", elem_classes=["primary-btn"])
-                IR_btn = gr.Button("가구 모델명 찾기", variant="primary", elem_classes=["primary-btn"])
+                run_btn = gr.Button("3D로 변환", variant="primary", elem_classes=["primary-btn"])
+                IR_btn = gr.Button("배치된 가구 제품명 찾기", variant="primary", elem_classes=["primary-btn"])
                 
                 revert_btn = gr.Button("↩️ 원본 되돌리기", variant="secondary")
 
-                with gradio.Row():
-                    text_input = gradio.Textbox(label="Query Text")
-                    threshold = gradio.Slider(label="Threshold", value=0.85, minimum=0.0, maximum=1.0, step=0.01)
-                find_btn = gradio.Button("Find")
+                # with gradio.Row():
+                #     text_input = gradio.Textbox(label="Query Text")
+                #     threshold = gradio.Slider(label="Threshold", value=0.85, minimum=0.0, maximum=1.0, step=0.01)
+                # find_btn = gradio.Button("Find")
                 
                 # [수정됨] 초기에는 보이지 않도록 visible=False 설정
                 # 변수명(analysis_accordion)을 할당해야 나중에 업데이트 가능
@@ -945,7 +945,6 @@ def main_demo(tmpdirname, pe3r, device, server_name, server_port, silent=False):
                 )
                 outgallery = gr.Gallery(visible=False)
             with gr.Column():
-                gr.Markdown("## 3D Object Detection Results")
                 
                 # columns=1로 설정하면 이미지가 세로로 한 줄씩 나옵니다.
                 # object_fit="contain"은 이미지가 잘리지 않고 전체가 보이게 합니다.
@@ -1123,9 +1122,9 @@ def main_demo(tmpdirname, pe3r, device, server_name, server_port, silent=False):
         mask_sky.change(fn=model_from_scene_fun, inputs=update_inputs, outputs=outmodel)
         clean_depth.change(fn=model_from_scene_fun, inputs=update_inputs, outputs=outmodel)
         transparent_cams.change(model_from_scene_fun, inputs=update_inputs, outputs=outmodel)
-        find_btn.click(fn=get_3D_object_from_scene_fun,
-                             inputs=[text_input, threshold, scene, min_conf_thr, as_pointcloud, mask_sky,
-                                      clean_depth, transparent_cams, cam_size],
-                            outputs=outmodel)
+        # find_btn.click(fn=get_3D_object_from_scene_fun,
+        #                      inputs=[text_input, threshold, scene, min_conf_thr, as_pointcloud, mask_sky,
+        #                               clean_depth, transparent_cams, cam_size],
+        #                     outputs=outmodel)
 
     demo.launch(share=True, server_name=server_name, server_port=server_port)
