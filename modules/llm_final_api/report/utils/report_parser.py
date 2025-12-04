@@ -5,23 +5,24 @@ def parse_report_output(result_text: str) -> Dict[str, Union[str, Dict, List]]:
     llm_output = result_text
     parsed_data: Dict[str, Any] = {}
 
-    # ------ 전체적인 분위기 한 줄 ------
+    # --- # 전체적인 분위기 한 줄 ---
+    # 패턴: # 전체적인 분위기는 **{...} 스타일**입니다.
     match_style = re.search(
         r"#\s*전체적인 분위기는\s*\*\*(.*?)\s*스타일\*\*",
         llm_output,
         re.DOTALL, 
     )
 
-    # 일치하는 경우에만 처리
     if match_style: 
         general = match_style.group(1).strip()
         parsed_data["general_style"] = general
 
-        # {분위기1}, {분위기2} ,{분위기3} 추출 
+        # {분위기1}, {분위기2} ,{분위기3} 추출
         moods = re.findall(r"([가-힣\s]+?)(?:하고|한|\s*$)", general)
-        parsed_data["mood_words"] = [m.strip() for m in moods if m.strip()] # 추출된 단어 리스트는 'mood_words' 저장
+        parsed_data["mood_words"] = [m.strip() for m in moods if m.strip()]
 
-    # ------ ## 1. 분위기 정의 및 유형별 확률 ------
+    # --- ## 1. 분위기 정의 및 유형별 확률 ---
+    # 섹션 탐지: 다음 헤딩인 '## 2.'까지
     mood_section_match = re.search(
         r"##\s*1\. 분위기 정의 및 유형별 확률(.*?)(?=##\s*2\. 분위기 판단 근거)",
         llm_output,
@@ -29,17 +30,19 @@ def parse_report_output(result_text: str) -> Dict[str, Union[str, Dict, List]]:
     )
 
     if mood_section_match:
-        mood_section = mood_section_match.group(1)
+        mood_section = mood_section_match.group(1).strip()
 
-        # {분위기}({확률}%): {설명} 패턴을 정의
-        PATTERN_MOOD_DETAIL = r"-\s*(.*?)\s*\((\d+)%\):\s*(.*)"
+        # 패턴: - **{"{분위기}"}({확률}%)**: \n {설명}
+        PATTERN_MOOD_DETAIL = re.compile(
+            # - **{"{분위기}"}({확률}%)**: \s*\n\s*{설명}
+            r'-\s*\*\*\{\"([^\"]+)\"\}\s*\((\d+)%\)\*\*\s*:\s*\n\s*(.+?)',
+            re.DOTALL
+        )
 
-        # PATTERN_MOOD_DETAIL에 매칭되는 항목을 찾아 리스트로 변환
-        mood_matches = re.findall(PATTERN_MOOD_DETAIL, mood_section)
+        mood_matches = PATTERN_MOOD_DETAIL.findall(mood_section)
 
         parsed_data["mood_details"] = []
 
-        # 찾은 모든 항목(튜플)을 순회하며, 구조화
         for mood, pct, desc in mood_matches:
             parsed_data["mood_details"].append(
                 {
@@ -50,17 +53,22 @@ def parse_report_output(result_text: str) -> Dict[str, Union[str, Dict, List]]:
             )
 
     
-    # ------ ## 2. 분위기 판단 근거 -------
+    # --- ## 2. 분위기 판단 근거 ---
+    # 섹션 탐지: 다음 헤딩인 '## 3.'까지
     basis_section_match = re.search(
-        r"##\s*2\. 분위기 판단 근거(.*?)(?=##\s*3-1\. 현재 분위기에 맞춰 추가하면 좋을 가구 추천)",
+        r"##\s*2\. 분위기 판단 근거(.*?)(?=##\s*3\. 가구 추가 / 제거 / 변경 추천)",
         llm_output,
         re.DOTALL,
     )
     if basis_section_match:
-        basis_section = basis_section_match.group(1)
+        basis_section = basis_section_match.group(1).strip()
 
-        PATTERN_BASIS = r"-\s*(.*?):\s*(.*)"
-        basis_matches = re.findall(PATTERN_BASIS, basis_section)
+        # 패턴: - **{키}** : \n {값}
+        PATTERN_BASIS = re.compile(
+            r"-\s*\*\*(.*?)\*\*\s*:\s*\n\s*(.+?)",
+            re.DOTALL
+        )
+        basis_matches = PATTERN_BASIS.findall(basis_section)
 
         parsed_data["basis"] = {}
         key_mapping = {
@@ -69,87 +77,73 @@ def parse_report_output(result_text: str) -> Dict[str, Union[str, Dict, List]]:
             "소재": "material",
         }
 
-        # 찾은 모든 (key, value) 쌍
         for key, value in basis_matches:
             k = key.strip()
             v = value.strip()
             if k in key_mapping:
                 parsed_data["basis"][key_mapping[k]] = v
             else:
-                # 매핑에 없는 키는 원문 그대로도 보존
                 parsed_data["basis"][k] = v
 
-    # ------ ## 3-1. 현재 분위기에 맞춰 추가하면 좋을 가구 추천 ------
-    add_section_match = re.search(
-        r"##\s*3-1\. 현재 분위기에 맞춰 추가하면 좋을 가구 추천(.*?)(?=##\s*3-2\. 제거하면 좋을 가구 추천)",
+    # --- ## 3. 가구 추가 / 제거 / 변경 추천 (복합 섹션) ---
+    # 섹션 탐지: 다음 헤딩인 '## 4.'까지
+    rec_section_match = re.search(
+        r"##\s*3\. 가구 추가 / 제거 / 변경 추천(.*?)(?=##\s*4\. 이런 스타일 어떠세요\?)",
         llm_output,
         re.DOTALL,
     )
-    if add_section_match:
-        add_section = add_section_match.group(1)
+    
+    if rec_section_match:
+        rec_section = rec_section_match.group(1).strip()
+        
+        # 3-1: 추가 추천: 3-1 **제목**\n- **가구** :\n근거
+        add_match = re.search(
+            r"3-1\s*\*\*현재 분위기에 맞춰 추가하면 좋을 가구 추천\*\*\s*\n-\s*\*\*(.*?)\*\*\s*:\s*\n\s*(.*?)",
+            rec_section,
+            re.DOTALL
+        )
+        if add_match:
+            item, reason = add_match.groups()
+            parsed_data["recommendations_add"] = [
+                {"item": item.strip(), "reason": reason.strip()}
+            ]
+        else:
+            parsed_data["recommendations_add"] = []
 
-        # {추가 가구} : {근거}
-        PATTERN_ADD = r"-\s*(.*?):\s*(.*)"
-        add_matches = re.findall(PATTERN_ADD, add_section)
+        # 3-2: 제거 추천: 3-2 **제목**\n- **가구** :\n근거
+        rem_match = re.search(
+            r"3-2\s*\*\*제거하면 좋을 가구 추천\*\*\s*\n-\s*\*\*(.*?)\*\*\s*:\s*\n\s*(.*?)",
+            rec_section,
+            re.DOTALL
+        )
+        if rem_match:
+            item, reason = rem_match.groups()
+            parsed_data["recommendations_remove"] = [
+                {"item": item.strip(), "reason": reason.strip()}
+            ]
+        else:
+            parsed_data["recommendations_remove"] = []
 
-        parsed_data["recommendations_add"] = []
-
-        # 찾은 항목(튜플)을 구조화
-        for item, reason in add_matches:
-            parsed_data["recommendations_add"].append(
-                {
-                    "item": item.strip(),
-                    "reason": reason.strip(),
-                }
-            )
-
-    # ------ ## 3-2. 제거하면 좋을 가구 추천 ------
-    rem_section_match = re.search(
-        r"##\s*3-2\. 제거하면 좋을 가구 추천(.*?)(?=##\s*3-3\. 분위기별 바꿨으면 하는 가구 추천)",
-        llm_output,
-        re.DOTALL,
-    )
-    if rem_section_match:
-        rem_section = rem_section_match.group(1)
-
-        # {제거 가구} : {근거}
-        PATTERN_REM = r"-\s*(.*?):\s*(.*)"
-        rem_matches = re.findall(PATTERN_REM, rem_section)
-
-        # 템플릿 상 한 줄만 나오지만, 혹시 모를 확장을 고려해 리스트로 저장
-        parsed_data["recommendations_remove"] = []
-        for item, reason in rem_matches:
-            parsed_data["recommendations_remove"].append(
-                {
-                    "item": item.strip(),
-                    "reason": reason.strip(),
-                }
-            )
-
-    # ------ ## 3-3. 분위기별 바꿨으면 하는 가구 추천 ------
-    change_section_match = re.search(
-        r"##\s*3-3\. 분위기별 바꿨으면 하는 가구 추천(.*?)(?=#\s*6\. 이런 스타일 어떠세요\?|##\s*정리|$)",
-        llm_output,
-        re.DOTALL,
-    )
-    if change_section_match:
-        change_section = change_section_match.group(1)
-
-        # {변경 가구} -> {추천 가구} : {근거}
-        PATTERN_CHANGE = r"-\s*(.*?)\s*->\s*(.*?)\s*:\s*(.*)"
-        change_matches = re.findall(PATTERN_CHANGE, change_section)
-
-        parsed_data["recommendations_change"] = []
-        for src, dst, reason in change_matches:
-            parsed_data["recommendations_change"].append(
+        # 3-3: 변경 추천: 3-3 **제목**\n- **변경 -> 추천** :\n근거
+        change_match = re.search(
+            r"3-3\s*\*\*분위기별 바꿨으면 하는 가구 추천\*\*\s*\n-\s*\*\*(.*?)\s*->\s*(.*?)\*\*\s*:\s*\n\s*(.*)",
+            rec_section,
+            re.DOTALL
+        )
+        if change_match:
+            src, dst, reason = change_match.groups()
+            parsed_data["recommendations_change"] = [
                 {
                     "from_item": src.strip(),
                     "to_item": dst.strip(),
-                    "reason": reason.strip(),
+                    "reason": reason.strip()
                 }
-            )
+            ]
+        else:
+            parsed_data["recommendations_change"] = []
 
-    # ------ ## 4. 이런 스타일 어떠세요? ------
+    # --- ## 4. 이런 스타일 어떠세요? ---
+    # 섹션 탐지: 다음 헤딩인 '## 정리'까지
     section_pattern = re.compile(
         r"^##\s*4\.\s*이런 스타일 어떠세요\?\s*$"
         r"(?P<body>.*?)(?=^##\s*정리|\Z)", 
@@ -158,19 +152,18 @@ def parse_report_output(result_text: str) -> Dict[str, Union[str, Dict, List]]:
 
     m = section_pattern.search(llm_output)
     
-    parsed_data["recommended_styles"] = [] # 결과 리스트 초기화
+    parsed_data["recommended_styles"] = []
     
     if m:
         body = m.group("body").strip()
         
         if body:
-            # "{- 스타일} : {이유}" 형식 한 줄씩 파싱
+            # 패턴: **{스타일}** :\n {이유}
             bullet_pattern = re.compile(
-                r"^\s*-\s*(?P<style>[^:]+?)\s*:\s*(?P<reason>.+)$",
-                re.MULTILINE,
+                r"^\s*\*\*(?P<style>[^:]+?)\*\*\s*:\s*\n\s*(?P<reason>.+)$",
+                re.MULTILINE | re.DOTALL,
             )
 
-            # 본문(body) 내에서 모든 일치 항목을 반복해서 찾음
             for b in bullet_pattern.finditer(body):
                 style = b.group("style").strip()
                 reason = b.group("reason").strip()
@@ -181,12 +174,12 @@ def parse_report_output(result_text: str) -> Dict[str, Union[str, Dict, List]]:
                     }
                 )
 
-    # ------ 정리 ------
+    # --- ## 정리 ---
     sum_section_match = re.search(r"##\s*정리(.*)", llm_output, re.DOTALL)
     if sum_section_match:
         sum_section = sum_section_match.group(1)
 
-        # " {- 문장}" 형태의 모든 줄을 뽑아온다.
+        # 패턴: - {문장}
         lines = re.findall(r"-\s*(.*)", sum_section)
 
         parsed_data["summary"] = {}
@@ -194,7 +187,4 @@ def parse_report_output(result_text: str) -> Dict[str, Union[str, Dict, List]]:
             key = f"summary{idx + 1}"
             parsed_data["summary"][key] = sentence.strip()
 
-    # 최종 결과 반환
     return parsed_data
-
-
