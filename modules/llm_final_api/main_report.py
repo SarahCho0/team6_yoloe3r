@@ -11,9 +11,7 @@ from typing import Dict, Any
 
 # 1. config 모듈 임포트 (팀 환경 설정 가정)
 try:
-    from config import * 
-
-except ImportError:
+    from config import * except ImportError:
     # config 파일이 없을 경우 임시 기본값 설정 (실제 환경에서는 팀 구성원의 config 파일이 있어야 함)
     API_KEY = "dummy_api_key"
     REPORT_MODEL = "gemini-2.5-flash-preview-09-2025"
@@ -70,29 +68,31 @@ def create_summary_report_file(parsed_data: Dict[str, Any], raw_report_text: str
     # 1. 분위기 정의 및 유형별 확률 데이터 추출 및 기본값 설정
     # 파싱 실패 시 fallback 값은 요청하신 템플릿의 플레이스홀더와 유사하게 설정
     mood1_word = mood_details[0].get("word", "분위기1") if len(mood_details) > 0 else "분위기1"
-    mood1_percent = str(mood_details[0].get("percentage", "확률1")) if len(mood_details) > 0 else "확률1"
+    # 'percentage' 대신 'percent' 키를 사용하도록 수정합니다. (이전 파서의 구조에 따라 다름)
+    mood1_percent = str(mood_details[0].get("percent", "확률1")) if len(mood_details) > 0 else "확률1"
     mood2_word = mood_details[1].get("word", "분위기2") if len(mood_details) > 1 else "분위기2"
-    mood2_percent = str(mood_details[1].get("percentage", "확률2")) if len(mood_details) > 1 else "확률2"
+    mood2_percent = str(mood_details[1].get("percent", "확률2")) if len(mood_details) > 1 else "확률2"
     mood3_word = mood_details[2].get("word", "분위기3") if len(mood_details) > 2 else "분위기3"
-    mood3_percent = str(mood_details[2].get("percentage", "확률3")) if len(mood_details) > 2 else "확률3"
+    mood3_percent = str(mood_details[2].get("percent", "확률3")) if len(mood_details) > 2 else "확률3"
 
-    # 2. 가구 추천 데이터 추출 및 기본값 설정
-    rec_add = parsed_data.get("recommendations_add", [])
-    add_item = rec_add[0].get("item", "추가 가구") if rec_add and rec_add[0].get("item") else "추가 가구"
+    # 2. 가구 추천 데이터 추출 및 기본값 설정 (파서의 새로운 구조를 따름)
+    furniture_recs = parsed_data.get("furniture_recommendations", {})
+    
+    # 가구 추가
+    add_item = furniture_recs.get("add", {}).get("name", "추가 가구")
 
-    rec_rem = parsed_data.get("recommendations_remove", [])
-    rem_item = rec_rem[0].get("item", "제거 가구") if rec_rem and rec_rem[0].get("item") else "제거 가구"
+    # 가구 제거
+    rem_item = furniture_recs.get("remove", {}).get("name", "제거 가구")
 
-    rec_change = parsed_data.get("recommendations_change", [])
-    if rec_change and rec_change[0].get("from_item") and rec_change[0].get("to_item"):
-        change_item = rec_change[0].get("from_item")
-        rec_item = rec_change[0].get("to_item")
-    else:
-        change_item = "변경 가구"
-        rec_item = "추천 가구"
+    # 가구 변경
+    change_item = furniture_recs.get("change", {}).get("old_name", "변경 가구")
+    rec_item = furniture_recs.get("change", {}).get("new_name", "추천 가구")
+
 
     # 3. 추천 스타일 데이터 추출 및 기본값 설정
     rec_styles = parsed_data.get("recommended_styles", [])
+    
+    # 여기서 'style' 키를 사용하여 추천 스타일 이름을 정확히 가져옵니다.
     rec_style = rec_styles[0].get("style", "추천 분위기") if rec_styles and rec_styles[0].get("style") else "추천 분위기"
     
     # 전체 분위기 스타일 (general_style)
@@ -115,6 +115,8 @@ def create_summary_report_file(parsed_data: Dict[str, Any], raw_report_text: str
     # =====================================================================
     # 최종 요약 콘텐츠 생성 (SUMMARY_TEMPLATE에 데이터 포매팅)
     # =====================================================================
+    # SUMMARY_TEMPLATE의 구조를 모르므로, 이전 버전에서 사용했던 방식처럼 템플릿에 맞춰 포매팅합니다.
+    # 단, 'SUMMARY_TEMPLATE'가 정의되어 있다고 가정하고 진행합니다.
     summary_content = SUMMARY_TEMPLATE.format(
         general_style=general_style,
         mood1_word=mood1_word,
