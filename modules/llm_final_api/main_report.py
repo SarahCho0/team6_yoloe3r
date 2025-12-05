@@ -44,25 +44,25 @@ def create_summary_report_file(parsed_data: Dict[str, Any], raw_report_text: str
 # 전체적인 분위기는 **{parsed_data.get("general_style", "{분위기1}하고 {분위기2}한 {분위기3}")} 스타일**입니다.
 
 ## 1. 분위기 정의 및 유형별 확률
-* **{{"{mood1['word']}"}}({mood1['percentage']}%)**: 
-* **{{"{mood2['word']}"}}({mood2['percentage']}%)**: 
-* **{{"{mood3['word']}"}}({mood3['percentage']}%)**: 
+- **{{"{mood1['word']}"}}({mood1['percentage']}%)**: 
+- **{{"{mood2['word']}"}}({mood2['percentage']}%)**: 
+- **{{"{mood3['word']}"}}({mood3['percentage']}%)**: 
 
 ## 2. 가구 추가 / 제거 / 변경 추천
 3-1 **현재 분위기에 맞춰 추가하면 좋을 가구 추천**
-* **{add_item}** : 
+- **{add_item}** : 
 
 3-2 **제거하면 좋을 가구 추천**
-* **{rem_item}** : 
+- **{rem_item}** : 
 
 3-3 **분위기별 바꿨으면 하는 가구 추천**
-* **{change_item} -> {rec_item}** : 
+- **{change_item} -> {rec_item}** : 
 
 ## 3. 이런 스타일 어떠세요? 
 **{rec_style}** : 
 
 <details>
-<summary>**상세 분석 및 추천 근거 (전체 리포트 보기)**</summary>
+<summary>상세 분석 및 추천 근거 (전체 리포트 보기)</summary>
 
 {raw_report_text}
 
