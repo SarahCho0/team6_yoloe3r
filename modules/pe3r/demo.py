@@ -118,10 +118,18 @@ def get_3D_model_from_scene(outdir, silent, scene, min_conf_thr=3, as_pointcloud
     return _convert_scene_output_to_glb(outdir, rgbimg, pts3d, msk, focals, cams2world, as_pointcloud=as_pointcloud,
                                         transparent_cams=transparent_cams, cam_size=cam_size, silent=silent)
 
-def mask_nms(masks, threshold=0.8):
+def mask_nms(masks, threshold=0.5):
+    """
+    수정됨: 
+    threshold를 기본 0.8에서 0.5로 낮추어 중복 제거를 더 공격적으로 수행합니다.
+    큰 마스크(A)와 작은 마스크(B)가 겹칠 때, 작은 마스크의 50% 이상이 
+    큰 마스크와 겹치면 작은 마스크를 제거합니다.
+    """
     keep = []
     mask_num = len(masks)
     suppressed = np.zeros((mask_num), dtype=np.int64)
+    
+    # masks는 이미 면적 순으로 내림차순 정렬되어 들어온다고 가정 (get_mask_from_yolo_seg에서 처리)
     for i in range(mask_num):
         if suppressed[i] == 1:
             continue
@@ -129,8 +137,16 @@ def mask_nms(masks, threshold=0.8):
         for j in range(i + 1, mask_num):
             if suppressed[j] == 1:
                 continue
+            
             intersection = (masks[i] & masks[j]).sum()
-            if min(intersection / masks[i].sum(), intersection / masks[j].sum()) > threshold:
+            
+            # i가 j보다 큼 (면적 기준). 
+            # 따라서 intersection / masks[j].sum()은 "작은 물체가 큰 물체에 얼마나 포함되었는가"를 의미
+            # 이 값이 threshold(0.5)보다 크면 작은 물체(j)를 삭제.
+            # 즉, 큰 가구 안에 포함된 작은 파츠(쿠션 등)를 제거함.
+            overlap_ratio = intersection / masks[j].sum()
+            
+            if overlap_ratio > threshold:
                 suppressed[j] = 1
     return keep
 
@@ -140,23 +156,37 @@ def filter(masks, keep):
         if i in keep: ret.append(m)
     return ret
 
-def get_mask_from_yolo_seg(seg_model, image_np, conf=0.25):
+def get_mask_from_yolo_seg(seg_model, image_np, conf=0.45):
+    """
+    수정됨:
+    1. conf: 0.25 -> 0.45로 상향 조정 (더 확실한 객체만 탐지)
+    2. mask_nms 호출 시 threshold=0.5 적용 (포함 관계 정리 강화)
+    """
+    # conf를 높여서 낮은 신뢰도의 객체(노이즈) 필터링
     results = seg_model.predict(image_np, conf=conf, retina_masks=True, verbose=False)
     sam_mask = []
+    
     if results[0].masks is not None:
         masks_data = results[0].masks.data
         img_area = image_np.shape[0] * image_np.shape[1]
+        
         for mask in masks_data:
             bin_mask = mask > 0.5
-            if bin_mask.sum() / img_area > 0.002:
+            # 너무 작은 객체 (화면의 0.2% 미만) 무시
+            if bin_mask.sum() / img_area > 0.002: 
                 sam_mask.append(bin_mask)
 
     if len(sam_mask) == 0:
         return []
+        
     sam_mask = torch.stack(sam_mask)
+    # 크기가 큰 순서대로 정렬 (중요: NMS가 큰 것을 남기도록 하기 위함)
     sorted_sam_mask = sorted(sam_mask, key=(lambda x: x.sum()), reverse=True)
-    keep = mask_nms(sorted_sam_mask)
+    
+    # 겹침/포함 관계 정리 (임계값 0.5)
+    keep = mask_nms(sorted_sam_mask, threshold=0.5)
     ret_mask = filter(sorted_sam_mask, keep)
+    
     return ret_mask
 
 @torch.no_grad
@@ -261,7 +291,10 @@ def get_3D_object_from_scene(outdir, pe3r, silent, text, threshold, scene, min_c
             else:
                 img_input = img_input.astype(np.uint8)
 
-        conf_thr = 0.05 
+        # [수정됨] conf_thr: 0.05 -> 0.3으로 상향
+        # 너무 낮은 확신도의 객체는 잡지 않도록 하여 파편화 및 오탐지 방지
+        conf_thr = 0.3 
+        
         results = pe3r.seg_model.predict(img_input, conf=conf_thr, retina_masks=True, verbose=False)
         
         combined_mask = np.zeros(img.shape[:2], dtype=bool)
@@ -269,10 +302,31 @@ def get_3D_object_from_scene(outdir, pe3r, silent, text, threshold, scene, min_c
 
         if results[0].masks is not None:
             masks = results[0].masks.data.cpu().numpy()
+            
+            # [추가] 텍스트 검색 결과에서도 NMS 적용
+            # YOLO가 자체적으로 NMS를 수행하지만, 마스크 레벨에서 
+            # 가장 큰 덩어리 하나만 확실하게 잡기 위해 추가 필터링 수행
+            valid_masks = []
             for mask in masks:
                 if mask.shape != combined_mask.shape:
                     mask = cv2.resize(mask, (combined_mask.shape[1], combined_mask.shape[0]))
-                combined_mask = np.logical_or(combined_mask, mask > 0.5)
+                bin_mask = mask > 0.5
+                valid_masks.append(bin_mask)
+            
+            if valid_masks:
+                # 크기순 정렬
+                valid_masks.sort(key=lambda x: x.sum(), reverse=True)
+                # 가장 큰 마스크 하나만 선택 (가구 파편화 방지를 위한 가장 강력한 방법)
+                # 만약 '의자'를 찾는데 의자가 여러 개일 수 있다면 아래 로직 대신 mask_nms 사용
+                # 여기서는 "한 가구를 감싸는 가장 큰 박스" 요청에 따라 가장 큰 놈을 우선합니다.
+                
+                # 여러 개의 의자를 다 찾아야 한다면:
+                # keep = mask_nms(valid_masks, threshold=0.5)
+                # for k in keep: combined_mask = np.logical_or(combined_mask, valid_masks[k])
+                
+                # 만약 '가장 큰 하나'만 남겨야 한다면:
+                combined_mask = valid_masks[0]
+                
                 found = True
         
         if found:
@@ -288,7 +342,7 @@ def get_3D_object_from_scene(outdir, pe3r, silent, text, threshold, scene, min_c
     scene.ori_imgs = masked_images
     scene.imgs = masked_images 
 
-    outfile = get_3D_model_from_scene(outdir, silent, scene, min_conf_thr, as_pointcloud, mask_sky,
+    outfile = get_3D_model_from_scene(outdir, silent, scene, min_conf_thr, as_pointcloud, mask_sky, 
                                       clean_depth, transparent_cams, cam_size)
     
     return outfile
