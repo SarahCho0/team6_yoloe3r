@@ -323,8 +323,7 @@ def highlight_selected_object(
     masked_images = []
     original_images = scene.backup_imgs
     
-    # 파란색 블렌딩 비율 (0.0 ~ 1.0)
-    # 0.5는 원본 50% + 파란색 50%로 적절한 하이라이트 효과를 줍니다.
+    # 파란색 틴트 강도 (0.0 ~ 1.0)
     alpha = 0.5 
 
     for i, img in enumerate(original_images):
@@ -337,33 +336,28 @@ def highlight_selected_object(
         processed_img = img.copy() # 배경은 원본 그대로 유지
         
         if target_mask is not None:
-            # 마스크 크기가 안 맞으면 리사이즈
+            # 마스크 크기 조정
             if target_mask.shape[:2] != (img_h, img_w):
                 target_mask = cv2.resize(target_mask.astype(np.uint8), (img_w, img_h), interpolation=cv2.INTER_NEAREST).astype(bool)
             
-            # [수정됨] 선택된 객체(target_mask) 부분만 파란색 틴트 적용
-            # 배경(~target_mask)을 어둡게 하는 코드는 삭제됨
-            
+            # 파란색 틴트 적용 (배경은 건드리지 않음)
             if processed_img.dtype == np.uint8:
-                # uint8 이미지 (0~255)
-                # RGB 기준 Blue: [0, 0, 255]
+                # RGB Blue: [0, 0, 255]
                 roi = processed_img[target_mask].astype(np.float32)
-                blue_layer = np.array([0, 0, 255], dtype=np.float32) # Blue
+                blue_layer = np.array([0, 0, 255], dtype=np.float32) 
                 
-                # 원본과 파란색을 alpha 비율로 섞음 (Texture 유지)
                 blended = (roi * (1 - alpha)) + (blue_layer * alpha)
                 processed_img[target_mask] = blended.astype(np.uint8)
                 
             else:
-                # float 이미지 (0.0~1.0)
-                # RGB 기준 Blue: [0.0, 0.0, 1.0]
+                # RGB Blue: [0.0, 0.0, 1.0]
                 roi = processed_img[target_mask]
                 blue_layer = np.array([0.0, 0.0, 1.0], dtype=processed_img.dtype)
                 
                 blended = (roi * (1 - alpha)) + (blue_layer * alpha)
                 processed_img[target_mask] = blended
         
-        # target_mask가 없으면(해당 뷰에서 객체가 안 보이면) 그냥 원본 그대로 추가
+        # 가구가 안 보이는 뷰는 원본 이미지 그대로 추가
         masked_images.append(processed_img)
 
     scene.ori_imgs = masked_images
@@ -593,13 +587,50 @@ def main_demo(tmpdirname, pe3r, device, server_name, server_port, silent=False):
     with gr.Blocks(title="IF U Demo", fill_width=True) as demo:
         scene = gr.State(None)
 
-        original_scene = gr.State(None)       
+        original_scene = gr.State(None)        
         original_inputfiles = gr.State(None)
         original_report_text = gr.State(None) 
         mask_data_state = gr.State([])
         object_id_list_state = gr.State([])
         interior_styles = [
-            # ... (스타일 목록 생략) ...
+            "AI 추천",
+            "모던 Modern Interior",
+            "미니멀리즘 Minimalist Interior",
+            "스칸디나비아/북유럽 Scandinavian Home",
+            "인더스트리얼 Industrial Loft",
+            "클래식 Classic Interior Design",
+            "모던 클래식 Modern Classic Home",
+            "빈티지 Vintage Home Decor",
+            "레트로 Retro Style Interior",
+            "내추럴/젠 Natural Zen Interior",
+            "재팬디 Japandi Style",
+            "러스틱 Rustic Farmhouse",
+            "팜하우스 Modern Farmhouse",
+            "셰비 시크 Shabby Chic Style",
+            "아르데코 Art Deco Design",
+            "미드 센추리 모던 Mid-Century Modern Home",
+            "보헤미안/보호 Boho Chic Interior",
+            "트로피컬 Tropical Home Decor",
+            "지중해/스페인 Mediterranean Home",
+            "프렌치 French Country Style",
+            "컨템포러리 Contemporary Style",
+            "스팀펑크 Steampunk Decor",
+            "고딕 Gothic Interior",
+            "하이테크 Hi-Tech Interior",
+            "그리스 리바이벌 Greek Revival Interior",
+            "아르누보 Art Nouveau Interior",
+            "코스탈/해안 Coastal Home Decor",
+            "스위스 샬레 Swiss Chalet Interior",
+            "이집트 Egyptian Home Decor",
+            "젠 아시아 Asian Zen Decor",
+            "맥시멀리즘 Maximalist Decor",
+            "키치 Kitsch Decor Style",
+            "바이오필릭 Biophilic Design Home",
+            "컬러 블록 Color Block Interior",
+            "모노크로매틱 Monochromatic Room",
+            "팝 아트 Pop Art Interior",
+            "그랜디시 Grandmillennial Style",
+            "매시큘린 Masculine Interior Design",
             "페미닌 Feminine Room Decor"
         ]
 
@@ -608,7 +639,6 @@ def main_demo(tmpdirname, pe3r, device, server_name, server_port, silent=False):
         with gr.Row():
             # --- 좌측 패널 (설정) ---
             with gr.Column(scale=1, min_width=320):
-                # ... (설정 컴포넌트 생략) ...
                 inputfiles = gr.File(file_count="multiple", label="Input Images")
                 
                 with gr.Accordion("⚙️ Settings", open=False):
@@ -686,15 +716,15 @@ def main_demo(tmpdirname, pe3r, device, server_name, server_port, silent=False):
         result_gallery.select(
                 fn=on_gallery_select,
                 inputs=[
-                    scene,                 
-                    mask_data_state,       
+                    scene,                  
+                    mask_data_state,        
                     object_id_list_state, 
-                    min_conf_thr,          
-                    as_pointcloud,         
-                    mask_sky,              
-                    clean_depth,           
-                    transparent_cams,      
-                    cam_size               
+                    min_conf_thr,           
+                    as_pointcloud,          
+                    mask_sky,               
+                    clean_depth,            
+                    transparent_cams,       
+                    cam_size                
                 ],
                 outputs=outmodel
             )
