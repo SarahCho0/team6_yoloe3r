@@ -24,7 +24,7 @@ pip install -r requirements.txt
 
 #### Usage
 ```bash
-python pe3r_demo.py
+python IFU_demo.py
 ```
 
 ### Acknowledgements
