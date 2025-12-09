@@ -11,9 +11,9 @@ def crop(img_path):
     if os.path.exists(output_root):
         try:
             shutil.rmtree(output_root)
-            print(f"🧹 초기화 완료: '{output_root}' 폴더를 비웠습니다.")
+            print(f"초기화 완료: '{output_root}' 폴더를 비웠습니다.")
         except Exception as e:
-            print(f"⚠️ 초기화 실패: {e}")
+            print(f"초기화 실패: {e}")
             
     # ------------------------------------
     # GPU 사용 가능 여부 확인 및 device 설정
@@ -33,8 +33,8 @@ def crop(img_path):
     # YOLOE 모델 로드 및 GPU로 이동
     model = YOLOE('yoloe-11l-seg.pt')
     if device.startswith("cuda"):
-        model.to(device) # 👈 YOLOE 모델을 GPU 메모리로 이동
-        print("✅ YOLOE 모델을 GPU로 로드했습니다.")
+        model.to(device) # YOLOE 모델을 GPU 메모리로 이동
+        print("YOLOE 모델을 GPU로 로드했습니다.")
 
     names = [
         "Kitchen Cabinet", "Mini Kitchen", "Kitchen Island/Cart", "Kitchen Appliance", 
@@ -52,10 +52,7 @@ def crop(img_path):
 
     imgs = img_path
     
-    # [핵심 1] 모든 프레임의 마스크 데이터를 모을 리스트
-    # 구조: [ { "Sofa_0": mask_array, "Table_1": mask_array }, ... ]
-    all_frames_masks = [] 
-    
+
     # ID <-> Class Name 매핑 딕셔너리
     id_to_class_map = {}
 
@@ -102,7 +99,7 @@ def crop(img_path):
             results = predictor(source=imgsrc)  
             raw_mask_dict = crop_by_result(results[0], img)
 
-        # [핵심 2] Raw ID를 실제 클래스 이름("Sofa_0")으로 변환하여 리스트에 저장
+
         current_frame_final_dict = {}
         
         for obj_idx, mask_arr in raw_mask_dict.items():
@@ -123,7 +120,7 @@ def crop(img_path):
     # ------------------------------------------------------------------
     # [후처리] 폴더 이름 변경 (ID -> ClassName_ID)
     # ------------------------------------------------------------------
-    print("\n🔄 폴더 이름을 클래스명으로 변경합니다...")
+    print("\n폴더 이름을 클래스명으로 변경합니다...")
     
     if os.path.exists(output_root):
         for folder_name in os.listdir(output_root):
