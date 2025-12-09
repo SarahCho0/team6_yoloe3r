@@ -16,7 +16,7 @@ pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu12
 
 #### Clone
 ```bash
-git clone 
+git clone https://github.com/cshyun1031/team6_yoloe3r.git
 pip install -r requirements.txt
 ```
 
