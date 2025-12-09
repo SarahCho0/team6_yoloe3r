@@ -5,25 +5,17 @@ from PIL import Image
 import numpy as np
 import faiss
 import os
-import glob
-from tqdm import tqdm
-import sys
-import requests
 import pandas as pd
-from pandas import Series, DataFrame
-import sqlite3
-import urllib.request
-import io
-import cv2
-import numpy as np
-from ultralytics import YOLOE
-import time
+
 
 
 # ----------------------------------------------------
-# 1. 모델 로드 및 전처리 정의
+# IR(Image Retrieval) 기능 구현 파일
+# 이케아 가구 이미지를 크롤링 하고 전처리 하여 만든 faiss 벡터스토어와
+# 유저가 입력한 이미지 속의 가구의 특징벡터를 코사인 유사도를 통해 비교하는 과정
 # ----------------------------------------------------
 
+# IR 메인 함수
 def IR():
 
     # DINOv2 모델 로드 함수
@@ -41,7 +33,11 @@ def IR():
         print("DINOv2 ViT-S 모델 로드 완료.")
         return model
 
-    # 이미지 전처리 파이프라인
+    # 이미지 전처리 파이프라인()
+    # 256 크기 리사이즈
+    # 224 크기 이미지 중앙 크롭
+    # 이미지 텐서 변환
+    # 색상 채널을 표준편차 1을 갖도록 정규화
     transform = transforms.Compose([
         transforms.Resize(256, interpolation=transforms.InterpolationMode.BICUBIC),
         transforms.CenterCrop(224),
@@ -49,10 +45,11 @@ def IR():
         transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     ])
 
-    # 로컬/마운트된 파일에서 이미지 로드 및 특징 벡터 추출 함수
-    def extract_features_from_mounted_drive(file_path, model, transform):
+    # 로컬 이미지 파일 특징 벡터 추출 함수
+    # 파일 경로, 특징 추출을 위한 모델, 전처리 함수를 인수로 받는 함수
+    def extract_features_from_image(file_path, model, transform):
         try:
-            # file_path는 이제 '/content/drive/MyDrive/...' 형태의 경로가 됩니다.
+            # 파일 경로상의 이미지를 읽어와 RGB 형식으로 변환
             img = Image.open(file_path).convert("RGB")
         except FileNotFoundError:
             print(f"오류: 파일을 찾을 수 없습니다. 경로를 확인하세요: {file_path}")
@@ -61,88 +58,38 @@ def IR():
             print(f"이미지 로드 오류: {e}")
             return None
 
+        # 이미지를 전처리한 후 리턴받은 텐서에 배치 차원을 추가
         img_tensor = transform(img).unsqueeze(0)
         if torch.cuda.is_available():
             img_tensor = img_tensor.cuda()
 
+        # 경사도 계산 비활성화(학습과정이 아니므로)
         with torch.no_grad():
+            # 전처리된 텐서를 DINOv2 모델에 통과시켜 특징벡터 추출
             features = model(img_tensor)
             # 특징 벡터를 L2 정규화 (코사인 유사도 계산을 위함)
             features = F.normalize(features, p=2, dim=1)
 
-        return features.cpu().numpy() # NumPy 배열로 변환하여 반환
+        # 특징벡터를 cpu 메모리로 이동시킨 후 numpy 배열로 변환하여 반환
+        return features.cpu().numpy()
 
     # DINOv2 모델 로드
     dinov2_model = load_dinov2_vits()
 
-    names = [
-        "Kitchen Cabinet",              # 700292: 주방 캐비닛
-        "Mini Kitchen",                 # 22957: 미니 주방
-        "Kitchen Island/Cart",          # 10471: 아일랜드 식탁/주방 카트
-        "Kitchen Appliance",            # ka002: 주방 가전
-        "Kitchen Countertop",           # 24264: 주방 조리대
-        "Kitchen Pantry",               # 16200: 주방 팬트리
-        "Kitchen System",               # ka003: 주방 시스템
-        "Office Desk/Chair Set",        # 700424: 오피스 책상/의자 세트
-        "Conference Chair",             # 47068: 회의실 의자
-        "Gaming Furniture",             # 55002: 게임용 가구
-        "Conference Table",             # 54173: 회의 테이블
-        "Desk/Chair Set",               # 53249: 책상/의자 세트
-        "Office Chair",                 # 20652: 의자/사무실 의자
-        "Computer Desk",                # 20649: 책상/컴퓨터 책상
-        "Vanity Chair/Stool",           # 59250: 화장대 의자/스툴
-        "Toddler Chair",                # 45782: 영유아 의자
-        "Childrens Chair",              # bc004: 어린이 의자
-        "Childrens Table",              # 18768: 어린이 테이블
-        "Step Stool",                   # 20611: 스텝 스툴/스텝 의자
-        "Bench",                        # 700319: 벤치
-        "Cafe Furniture",               # 19141: 카페 가구
-        "Stool",                        # 22659: 스툴
-        "Bar Table/Chair",              # 16244: 바 테이블/의자
-        "Coffee/Side Table",            # 10705: 커피테이블/사이드테이블
-        "Chair",                        # 700676: 의자
-        "Table",                        # 700675: 테이블
-        "Dining Furniture",             # 700417: 다이닝 가구
-        "Chaise Longue/Couch",          # 57527: 긴 의자/카우치
-        "Footstool",                    # 20926: 풋스툴/발받침대
-        "Sofa Bed",                     # 10663: 소파침대/소파베드
-        "Armchair",                     # fu006: 암체어/안락의자
-        "Sofa",                         # fu003: 소파
-        "Bedroom Set",                  # 54992: 침실 가구 세트
-        "Bed with Mattress",            # 700513: 매트리스 포함 침대
-        "Bedside Table",                # 20656: 침대 협탁
-        "Bed Frame",                    # bm003: 침대/침대프레임
-        "Shoe Cabinet",                 # 10456: 신발장
-        "Storage Unit",                 # 10385: 수납유닛/수납장
-        "Toy Storage",                  # 20474: 장난감 수납/정리함
-        "Hallway Set",                  # 700411: 복도 가구 세트
-        "Partition",                    # 46080: 칸막이/파티션
-        "Drawer/Nightstand",            # st004: 서랍장/침대협탁
-        "Storage System",               # 46052: 수납 솔루션 시스템
-        "Sideboard/Console Table",      # 30454: 거실장/찬장/콘솔테이블
-        "Trolley",                      # fu005: 트롤리/미니 카트
-        "TV/Media Furniture",           # 10475: TV/멀티미디어 가구
-        "Outdoor Storage",              # 21958: 야외용 수납가구
-        "Warehouse Storage",
-        "cabinet"           # 700440: 창고 수납
-    ]
 
 
-
-
-    from torch.jit import save
-    # --- 1. 파일 경로 및 검색 설정 ---
+    # 저장된 .faiss 파일 경로 지정
     INDEX_FILE_PATH = "modules/IR/DB/dinov2_product_catalog2.faiss" # 저장된 .faiss 파일 이름
+    
+    # 유저의 입력 이미지 경로(유저가 입력한 이미지에서 가구를 크롭한 이미지의 경로)
     TEST_DIR = 'output_crops'
 
-    # 마운트된 Google Drive의 테스트 이미지 폴더 경로 (사용자 환경에 맞게 수정하세요!)
-    folders = os.listdir(TEST_DIR)
+    # 상위 K개 유사 이미지를 찾도록 지정
+    K = 5 
 
-    K = 5 # 상위 K개 유사 이미지를 찾습니다.
+    print("\n===== 유사도 검색 시작 =====")
 
-    print("\n===== 4. 테스트 이미지 검증 시작 =====")
-
-    # --- 2. FAISS 인덱스 로컬 파일에서 로드 ---
+    # FAISS 인덱스 로컬 파일에서 로드
     loaded_index = None
     try:
         if os.path.exists(INDEX_FILE_PATH):
@@ -181,7 +128,7 @@ def IR():
             imgpath = os.path.join(folder_path, img)
             
             # 특징 추출
-            query_vector_np = extract_features_from_mounted_drive(
+            query_vector_np = extract_features_from_image(
                 imgpath, dinov2_model, transform
             )
 
