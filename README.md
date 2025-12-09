@@ -1,4 +1,4 @@
-# YOLOE3R: Perception-Efficient 3D Reconstruction
+# YOLOE3R
 
 
 ### Quick Start
