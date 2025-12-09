@@ -9,7 +9,7 @@ conda activate yoloe3r
 ```
 
 #### Install torch
-'''bash
+```bash
 pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 (본인 버전에 맞는 pytorch를 설치하세요)
 ```
