@@ -18,7 +18,7 @@ USER_CHOICE_PATH = "modules/llm_final_api/user_choice.json" # 사용자 선택�
 ORG_IMAGE_PATH = "img4new3r_org.png"  # 최종 결과물 이름
 
 def load_json(path: str):
-    with open("user_choice.json", "r", encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -219,3 +219,4 @@ def main_modify_looks():
         )
         ok_views = validate_views()
         print(f"[2차 재검수 결과] {'PASS' if ok_views else 'FAIL'}")
+
