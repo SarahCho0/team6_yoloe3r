@@ -21,7 +21,7 @@ cd team6_yoloe3r
 pip install -r requirements.txt
 ```
 
-### Setting 
+#### Setting 
 
 ```Python
 # config.py
