@@ -18,11 +18,6 @@ USER_CHOICE_PATH = "modules/llm_final_api/user_choice.json" # 사용자 선택�
 ORG_IMAGE_PATH = "img4new3r_org.png"  # 최종 결과물 이름
 
 def load_json(path: str):
-<<<<<<< bbaggu
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"JSON 파일을 찾을 수 없습니다: {path}")
-=======
->>>>>>> main
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
