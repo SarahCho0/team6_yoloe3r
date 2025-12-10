@@ -25,7 +25,7 @@ pip install -r requirements.txt
 
 ```Python
 # config.py
-API_KEY = "YOUR_GOOGLE_GENAI_API_KEY_HERE" # type your own api
+API_KEY = "YOUR_GOOGLE_GEMINI_API_KEY_HERE" # type your own api
 INITIAL_IMAGE_PATHS = [
     "path/to/your/-30degree_img.jpg", # -30degree picture
     "path/to/your/original_img.jpg", # original picture
