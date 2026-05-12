@@ -1,0 +1,42 @@
+# ──────────────────────────────────────────────────────────────
+# IFU_demo_lite.py 전용 requirements
+# LLM 관련 패키지(google-genai, anthropic, openai) 제외
+# API 키 불필요
+# ──────────────────────────────────────────────────────────────
+
+# 핵심 딥러닝
+torch
+torchvision
+
+# 객체 탐지 / 세그멘테이션
+ultralytics       # YOLOE (yoloe-11l-seg.pt)
+
+# 3D 재구성 / 시각화
+trimesh
+scipy
+open3d            # PLY 저장용 (선택, 없으면 numpy fallback)
+
+# 이미지 처리
+Pillow
+opencv-python
+matplotlib
+numpy
+
+# Gradio UI
+gradio
+
+# 유사 상품 검색 (IR 모듈)
+faiss-cpu
+
+# HuggingFace 모델 다운로드 (MASt3R, SAM2)
+transformers
+huggingface_hub
+
+# 환경변수 (.env)
+python-dotenv
+
+# ──────────────────────────────────────────────────────────────
+# VGGT 선택적 설치 (PE3R 대신 사용 시)
+# pip install einops timm
+# git clone https://github.com/facebookresearch/vggt /content/vggt
+# ──────────────────────────────────────────────────────────────
